@@ -5,7 +5,7 @@
 #include "ran2.c"
 
 #define eqs_MAX 1000
-#define mcs_MAX 10000
+#define mcs_MAX 1000000
 #define L_MAX 32
 
 long seed = -1;
