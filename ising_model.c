@@ -21,7 +21,7 @@ int main() {
 	double T;
 
 	// observables 파일 열기
-	file = fopen("cumulant.txt", "w");
+	file = fopen("U.txt", "w");
 	if (file == NULL) {
 		printf("file ERROR\n");
 		exit(1);
