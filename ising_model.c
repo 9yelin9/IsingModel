@@ -64,10 +64,10 @@ int main() {
 		free(rand_idx);
 
 		clock_t t1_end = clock();
-		printf("\t%f s\n", (double)(t1_end - t1) / CLOCKS_PER_SEC); // 소요 시간
+		printf("\t%.3f s\n", (double)(t1_end - t1) / CLOCKS_PER_SEC); // 소요 시간
 	}
 	clock_t t0_end = clock();
-	printf("total elapsed time : %f s\n", (double)(t0_end - t0) / CLOCKS_PER_SEC); // 반복문 소요 시간
+	printf("total elapsed time : %.3f s\n", (double)(t0_end - t0) / CLOCKS_PER_SEC); // 반복문 소요 시간
 
 	fclose(file);
 
