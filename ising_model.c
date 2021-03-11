@@ -1,11 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 #include <math.h>
 #include <time.h>
 #include "ran2.c"
 
 #define eqs_MAX 1000
-#define mcs_MAX 5000000
+#define mcs_MAX 1440000
 #define L_MAX 32
 
 long seed = -1;
@@ -28,7 +29,7 @@ int main() {
 	}
 	fprintf(file, "L\t");
 
-	for (T = 2.3; T > 2.2; T -= 0.002) {
+	for (T = 2.27; T > 2.26; T -= 0.0001) {
 		fprintf(file, "%f\t", T);
 	}
 	fprintf(file, "\n");
@@ -36,7 +37,7 @@ int main() {
 	// monte_carlo
 	clock_t t0 = clock(); // 반복문 시작 시간
 
-	for (L = 4; L <= L_MAX; L *= 2) {
+	for (L = 2; L <= L_MAX; L *= 2) {
 
 		clock_t t1 = clock(); // 시작 시간
 
@@ -142,7 +143,7 @@ void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* fi
 	}
 
 	// monte_carlo
-	for (T = 2.3; T > 2.2; T -= 0.002) {
+	for (T = 2.27; T > 2.26; T -= 0.0001) {
 		// eqs
 		for (eqs = 0; eqs < eqs_MAX; eqs++) {
 
@@ -186,7 +187,9 @@ void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* fi
 		}
 		U = 1 - ((sum_M4 / (double)mcs_MAX) / (3 * (sum_M2 / (double)mcs_MAX) * (sum_M2 / (double)mcs_MAX)));
 		fprintf(file, "%f\t", U);
-		printf("*");
 	}
+	if(fabsf(T - 2.26) <= FLT_EPSILON) printf("PASS");
+	else printf("FAIL");
+
 	fprintf(file, "\n");
 }

@@ -5,17 +5,9 @@
 #$ -cwd
 #$ -j y
 
-echo "nodes list"
-cat ${PE_HOSTFILE}
 pwd
-echo "--------------------------------"
-echo "jobid:       ${PE_JOBID}"
-echo "nodes:       ${NNODES}"
-echo "cores:       ${NCORES}"
-echo "Nodefile:    ${PE_HOSTFILE}"
 echo "# time-start "`date`
-echo "--------------------------------"
-
+echo "--------------------------------------------"
 ##source ~/.bashrc
-
 ./ising_model
+echo "--------------------------------------------"
