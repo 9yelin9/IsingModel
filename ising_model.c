@@ -5,7 +5,7 @@
 #include "ran2.c"
 
 #define eqs_MAX 1000
-#define mcs_MAX 5000000
+#define mcs_MAX 100000
 #define L_MAX 32
 
 long seed = -1;
@@ -144,7 +144,7 @@ void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* fi
 	// monte_carlo
 	for (T = 2.27; T > 2.26; T -= 0.001) {
 		// eqs
-		for (eqs = 0; eqs < eqs_MAX; eqs++) {
+		for (eqs = 0; eqs < eqs_MAX * N; eqs++) {
 
 			random_index(L, N, rand_idx);
 			for (k = 0; k < N; k++) {
@@ -165,7 +165,7 @@ void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* fi
 		// mcs
 		sum_M2 = 0;
 		sum_M4 = 0;
-		for (mcs = 0; mcs < mcs_MAX; mcs++) {
+		for (mcs = 0; mcs < mcs_MAX * N; mcs++) {
 
 			random_index(L, N, rand_idx);
 			for (k = 0; k < N; k++) {
@@ -184,7 +184,7 @@ void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* fi
 			sum_M2 += (M * M);
 			sum_M4 += (M * M * M * M);
 		}
-		U = 1 - ((sum_M4 / (double)mcs_MAX) / (3 * (sum_M2 / (double)mcs_MAX) * (sum_M2 / (double)mcs_MAX)));
+		U = 1 - ((sum_M4 / (double)(mcs_MAX * N)) / (3 * (sum_M2 / (double)(mcs_MAX * N)) * (sum_M2 / (double)(mcs_MAX * N))));
 		fprintf(file, "%f\t", U);
 		printf("*");
 	}
