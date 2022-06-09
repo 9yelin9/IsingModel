@@ -1,0 +1,5 @@
+output/
+diagram/
+*.bin
+*.txt
+*.csv
