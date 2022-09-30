@@ -1,192 +1,236 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <time.h>
-#include "ran2.c"
+// ising.c : calculate 2D ising model
 
-#define eqs_MAX 1000
-#define mcs_MAX 100000
-#define L_MAX 32
+#include "ising.h"
 
-long seed = -1;
+FILE* OpenFile(char *fs, char *ftype) {
+	FILE *f;
 
-void init_lattice(int L, int N, int** lattice, int** idx); // 초기화 (랜덤)
-void random_index(int L, int N, int* rand_idx); // 랜덤 인덱스 리스트 생성
-double compute_energy(int L, int N, int** lattice, int i, int j); // site 에너지 계산
-void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* file); // 몬테 카를로 방법으로 observables 계산
+	if((f = fopen(fs, ftype)) == NULL) {
+		printf("%s fopen FAIL\n", fs);
+		exit(1); }
 
-int main() {
-	FILE* file;
-	int i, L, N, ** lattice, ** idx, * rand_idx;
-	double T;
+	return f;
+}
 
-	// observables 파일 열기
-	file = fopen("U.txt", "w");
-	if (file == NULL) {
-		printf("file ERROR\n");
+void GenIdx(int N, int *idx) {
+	int i, a, b, tmp;
+	
+	for(i=0; i<N; i++) idx[i] = i;
+
+	for(i=0; i<100; i++) {
+		a = (int)(10 * ran2(&seed)) % N;
+		b = (int)(10 * ran2(&seed)) % N;
+
+		if(a != b) {
+			tmp    = idx[a];
+			idx[a] = idx[b];
+			idx[b] = tmp;
+		}
+	}
+}
+
+void GenName(int L, char *data_type, char *fs) {
+	sprintf(fs,\
+			"output/%s_MCS%d_L%d.txt",\
+			data_type, (int)log10(MCS), L);
+}
+
+void InitLatRand(int L, int (*lat)[L]) {
+	int i, j;
+
+	for(i=0; i<L; i++) {
+		for(j=0; j<L; j++) {
+			if(ran2(&seed) > 0.5) lat[i][j] = 1;
+			else lat[i][j] = -1;
+		}
+	}
+}
+
+void InitLatBin(int dec, int L, int (*lat)[L]) {
+	int i, j;	
+
+	for(i=0; i<L; i++) {
+		for(j=0; j<L; j++) {
+			lat[(L-1) - i][(L-1) - j] = 2 * (dec % 2) - 1;
+			dec /= 2;
+		}
+	}
+}
+
+void InitMonteCarlo(int L, int N, double T, int (*lat)[L]) {
+	int itr, i, I, J, idx[N];
+	double e0, e1;
+
+	for(itr=0; itr<EQS; itr++) {
+		GenIdx(N, idx);
+
+		for(i=0; i<N; i++) {
+			I = idx[i] / L;
+			J = idx[i] % L;
+
+			e0 = CalcEnergySite(I, J, L, lat);
+			lat[I][J] *= -1;
+			e1 = CalcEnergySite(I, J, L, lat);
+							
+			if(e1 - e0 > 0 && ran2(&seed) > exp((e0 - e1) / T)) lat[I][J] *= -1;
+		}
+	}
+}
+
+double CalcMagnetization(int L, int (*lat)[L]) {
+	int i, j;
+	double m = 0;
+
+	for(i=0; i<L; i++) {
+		for(j=0; j<L; j++) {
+			m += lat[i][j];
+		}
+	}
+
+	return m;
+}
+
+double CalcEnergyOverall(int L, int (*lat)[L]) {
+	int i, j, up, left;
+	double e = 0;
+
+	for(i=0; i<L; i++) {
+		for(j=0; j<L; j++) {
+			up    = i > 0 ? lat[i-1][j] : lat[L-1][j];
+			left  = j > 0 ? lat[i][j-1] : lat[i][L-1];
+			
+			e += lat[i][j] * (up + left);
+		}
+	}
+
+	return -e;
+}
+
+double CalcEnergySite(int i, int j, int L, int (*lat)[L]) {
+	int up, dn, left, right;
+	double e;
+
+	up     = i > 0   ? lat[i-1][j] : lat[L-1][j];
+	dn     = i < L-1 ? lat[i+1][j] : lat[0][j];
+	left   = j > 0   ? lat[i][j-1] : lat[i][L-1];
+	right  = j < L-1 ? lat[i][j+1] : lat[i][0];
+
+	e = lat[i][j] * (up + dn + left + right);
+
+	return -e;
+}
+
+void MonteCarlo(int L, int N, double T, MCObservable *mco) {
+	int itr, i, I, J, lat[L][L], idx[N];
+	double m, e, e0, e1;
+
+	InitLatRand(L, lat);
+	InitMonteCarlo(L, N, T, lat);
+	
+	mco->m = mco->ma = mco->m2 = mco->m4 = mco->e = mco->e2 = 0;
+	
+	for(itr=0; itr<MCS; itr++) {
+		GenIdx(N, idx);
+
+		for(i=0; i<N; i++) {
+			I = idx[i] / L;
+			J = idx[i] % L;
+
+			e0 = CalcEnergySite(I, J, L, lat);
+			lat[I][J] *= -1;
+			e1 = CalcEnergySite(I, J, L, lat);
+							
+			if(e1 - e0 > 0 && ran2(&seed) > exp((e0 - e1) / T)) lat[I][J] *= -1;
+		}
+
+		m = CalcMagnetization(L, lat);
+		e = CalcEnergyOverall(L, lat);
+
+		mco->m  += m;
+		mco->ma += abs(m);
+		mco->m2 += pow(m, 2);
+		mco->m4 += pow(m, 4);
+		mco->e  += e;
+		mco->e2 += pow(e, 2);
+	}
+
+	mco->m  /= MCS;
+	mco->ma /= MCS;
+	mco->m2 /= MCS;
+	mco->m4 /= MCS;
+	mco->e  /= MCS;
+	mco->e2 /= MCS;
+}
+
+void Test() {
+	int L = 2, N = L*L;
+
+	int itr, i, j, lat[L][L];
+	double e;
+
+	for(itr=0; itr<pow(2, N); itr++) {
+		InitLatBin(itr, L, lat);
+
+		e = CalcEnergyOverall(L, lat);
+
+		for(i=0; i<L; i++) {
+			for(j=0; j<L; j++) {
+				printf("%2d\t", lat[i][j]);
+			}
+		}
+		printf("%f\n", e);
+	}	
+}
+
+int main(int argc, char *argv[]) {
+	if(argc != 2) {
+		printf("%s <L> : make L*L Ising model\n", argv[0]);
 		exit(1);
 	}
-	fprintf(file, "L\t");
 
-	for (T = 2.27; T > 2.26; T -= 0.001) {
-		fprintf(file, "%f\t", T);
+	int L = atoi(argv[1]), N = L*L, t;
+	double T;
+	MCObservable mco;
+
+	FILE *fe, *fc, *fm, *fx, *fu;
+	char fes[64], fcs[64], fms[64], fxs[64], fus[64];
+
+	GenName(L, "energy", fes);
+	GenName(L, "heat_capacity", fcs);
+	GenName(L, "abs_magnetization", fms);
+	GenName(L, "mag_susceptibility", fxs);
+	GenName(L, "cumulant", fus);
+
+	fe = OpenFile(fes, "w");
+	fc = OpenFile(fcs, "w");
+	fm = OpenFile(fms, "w");
+	fx = OpenFile(fxs, "w");
+	fu = OpenFile(fus, "w");
+
+	for(t=1; t<T_MAX; t++) {
+		T = 0.1 * (T_MAX - t);
+
+		MonteCarlo(L, N, T, &mco);
+
+		fprintf(fe, "%f\t%f\n", T, ENERGY / N);
+		fprintf(fc, "%f\t%f\n", T, HEAT_CAPACITY(T) / N);
+		fprintf(fm, "%f\t%f\n", T, ABS_MAGNETIZATION / N);
+		fprintf(fx, "%f\t%f\n", T, MAG_SUSCEPTIBILITY(T) / N);
 	}
-	fprintf(file, "\n");
 
-	// monte_carlo
-	clock_t t0 = clock(); // 반복문 시작 시간
+	for(t=200; t<300; t++) {
+		T = 0.01 * (300 - t);
 
-	for (L = 2; L <= L_MAX; L *= 2) {
+		MonteCarlo(L, N, T, &mco);
 
-		clock_t t1 = clock(); // 시작 시간
-
-		N = L * L;
-
-		// 동적할당
-		lattice = (int**)malloc(sizeof(int*) * L);
-		for (i = 0; i < L; i++) {
-			lattice[i] = (int*)malloc(sizeof(int) * L);
-		}
-		idx = (int**)malloc(sizeof(int*) * N);
-		for (i = 0; i < N; i++) {
-			idx[i] = (int*)malloc(sizeof(int) * 2);
-		}
-		rand_idx = (int*)malloc(sizeof(int) * N);
-
-		monte_carlo(L, N, lattice, idx, rand_idx, file);
-
-		// 동적할당 해제
-		for (i = 0; i < L; i++) {
-			free(lattice[i]);
-		}
-		free(lattice);
-		free(idx);
-		free(rand_idx);
-
-		clock_t t1_end = clock();
-		printf("\t%.3f s\n", (double)(t1_end - t1) / CLOCKS_PER_SEC); // 소요 시간
+		fprintf(fu, "%f\t%f\n", T, CUMULANT / N);
 	}
-	clock_t t0_end = clock();
-	printf("total elapsed time : %.3f s\n", (double)(t0_end - t0) / CLOCKS_PER_SEC); // 반복문 소요 시간
 
-	fclose(file);
+	fclose(fe);
+	fclose(fc);
+	fclose(fm);
+	fclose(fx);
+	fclose(fu);
 
 	return 0;
-}
-
-void init_lattice(int L, int N, int** lattice, int** idx) { // 초기화 (랜덤)
-	int i, j, k;
-
-	k = 0;
-	for (i = 0; i < L; i++) {
-		for (j = 0; j < L; j++) {
-			if (ran2(&seed) > 0.5) {
-				lattice[i][j] = 1;
-			}
-			else lattice[i][j] = -1;
-
-			idx[k][0] = i;
-			idx[k][1] = j;
-
-			k++;
-		}
-	}
-}
-
-void random_index(int L, int N, int* rand_idx) { // 랜덤 인덱스 리스트 생성
-	int cnt, num, * tmp;
-
-	tmp = (int*)calloc(sizeof(int), N);
-
-	cnt = 0;
-	while (cnt < N) {
-
-		num = (int)(ran2(&seed) * N);
-		if (tmp[num] == 0) {
-			rand_idx[cnt] = num;
-			tmp[num] = 1;
-			cnt++;
-		}
-	}
-
-	free(tmp);
-}
-
-double compute_energy(int L, int N, int** lattice, int i, int j) { // site 에너지 계산
-	int LEFT, RIGHT, ABOVE, BELOW;
-
-	// neighbors & periodic boundary condition
-	LEFT = lattice[(i - 1 + L) % L][j];
-	RIGHT = lattice[(i + 1) % L][j];
-	ABOVE = lattice[i][(j - 1 + L) % L];
-	BELOW = lattice[i][(j + 1) % L];
-
-	return -lattice[i][j] * (LEFT + RIGHT + ABOVE + BELOW);
-}
-
-void monte_carlo(int L, int N, int** lattice, int** idx, int* rand_idx, FILE* file) { // 몬테 카를로 방법으로 |M| 계산
-	int i, j, k, eqs, mcs;
-	double T, M, sum_M2, sum_M4, E1, E0, dE, U;
-
-	fprintf(file, "%d\t", L);
-	printf("%d\t", L);
-
-	init_lattice(L, N, lattice, idx);
-
-	// init_M
-	M = 0;
-	for (i = 0; i < L; i++) {
-		for (j = 0; j < L; j++) {
-			M += lattice[i][j];
-		}
-	}
-
-	// monte_carlo
-	for (T = 2.27; T > 2.26; T -= 0.001) {
-		// eqs
-		for (eqs = 0; eqs < eqs_MAX * N; eqs++) {
-
-			random_index(L, N, rand_idx);
-			for (k = 0; k < N; k++) {
-				i = idx[rand_idx[k]][0];
-				j = idx[rand_idx[k]][1];
-
-				E0 = compute_energy(L, N, lattice, i, j);
-				lattice[i][j] *= -1;
-				E1 = compute_energy(L, N, lattice, i, j);
-
-				dE = E1 - E0;
-
-				if (dE > 0 && ran2(&seed) > exp(-dE / T)) lattice[i][j] *= -1; // skip
-				else M += (double)lattice[i][j] * 2; // flip
-			}
-		}
-
-		// mcs
-		sum_M2 = 0;
-		sum_M4 = 0;
-		for (mcs = 0; mcs < mcs_MAX * N; mcs++) {
-
-			random_index(L, N, rand_idx);
-			for (k = 0; k < N; k++) {
-				i = idx[rand_idx[k]][0];
-				j = idx[rand_idx[k]][1];
-
-				E0 = compute_energy(L, N, lattice, i, j);
-				lattice[i][j] *= -1;
-				E1 = compute_energy(L, N, lattice, i, j);
-
-				dE = E1 - E0;
-
-				if (dE > 0 && ran2(&seed) > exp(-dE / T)) lattice[i][j] *= -1; // skip
-				else M += (double)lattice[i][j] * 2; // flip
-			}
-			sum_M2 += (M * M);
-			sum_M4 += (M * M * M * M);
-		}
-		U = 1 - ((sum_M4 / (double)(mcs_MAX * N)) / (3 * (sum_M2 / (double)(mcs_MAX * N)) * (sum_M2 / (double)(mcs_MAX * N))));
-		fprintf(file, "%f\t", U);
-		printf("*");
-	}
-	fprintf(file, "\n");
 }
