@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#$ -pe mpi 16
+#$ -pe mpi 1
 #$ -q openmp.q
 #$ -j y
 #$ -cwd
