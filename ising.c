@@ -1,6 +1,9 @@
 // ising.c : calculate 2D ising model
 
 #include "ising.h"
+#include "ran2.c"
+
+long seed = -1;
 
 FILE* OpenFile(char *fs, char *ftype) {
 	FILE *f;
@@ -10,23 +13,6 @@ FILE* OpenFile(char *fs, char *ftype) {
 		exit(1); }
 
 	return f;
-}
-
-void GenIdx(int N, int *idx) {
-	int i, a, b, tmp;
-	
-	for(i=0; i<N; i++) idx[i] = i;
-
-	for(i=0; i<100; i++) {
-		a = (int)(10 * ran2(&seed)) % N;
-		b = (int)(10 * ran2(&seed)) % N;
-
-		if(a != b) {
-			tmp    = idx[a];
-			idx[a] = idx[b];
-			idx[b] = tmp;
-		}
-	}
 }
 
 void GenName(int L, char *data_type, char *fs) {
@@ -58,15 +44,15 @@ void InitLatBin(int dec, int L, int (*lat)[L]) {
 }
 
 void InitMonteCarlo(int L, int N, double T, int (*lat)[L]) {
-	int itr, i, I, J, idx[N];
+	int i, itr, idx, I, J;
 	double e0, e1;
 
 	for(itr=0; itr<EQS; itr++) {
-		GenIdx(N, idx);
-
 		for(i=0; i<N; i++) {
-			I = idx[i] / L;
-			J = idx[i] % L;
+			idx = (int)(N * ran2(&seed)) % N;
+
+			I = idx / L;
+			J = idx % L;
 
 			e0 = CalcEnergySite(I, J, L, lat);
 			lat[I][J] *= -1;
@@ -120,21 +106,21 @@ double CalcEnergySite(int i, int j, int L, int (*lat)[L]) {
 	return -e;
 }
 
-void MonteCarlo(int L, int N, double T, MCObservable *mco) {
-	int itr, i, I, J, lat[L][L], idx[N];
+void MonteCarlo(int L, int N, double T, Solution *s) {
+	int i, itr, idx, lat[L][L], I, J;
 	double m, e, e0, e1;
 
 	InitLatRand(L, lat);
 	InitMonteCarlo(L, N, T, lat);
 	
-	mco->m = mco->ma = mco->m2 = mco->m4 = mco->e = mco->e2 = 0;
-	
-	for(itr=0; itr<MCS; itr++) {
-		GenIdx(N, idx);
+	s->m = s->ma = s->m2 = s->m4 = s->e = s->e2 = 0;
 
+	for(itr=0; itr<MCS; itr++) {
 		for(i=0; i<N; i++) {
-			I = idx[i] / L;
-			J = idx[i] % L;
+			idx = (int)(N * ran2(&seed)) % N;
+
+			I = idx / L;
+			J = idx % L;
 
 			e0 = CalcEnergySite(I, J, L, lat);
 			lat[I][J] *= -1;
@@ -146,20 +132,20 @@ void MonteCarlo(int L, int N, double T, MCObservable *mco) {
 		m = CalcMagnetization(L, lat);
 		e = CalcEnergyOverall(L, lat);
 
-		mco->m  += m;
-		mco->ma += abs(m);
-		mco->m2 += pow(m, 2);
-		mco->m4 += pow(m, 4);
-		mco->e  += e;
-		mco->e2 += pow(e, 2);
+		s->m  += m;
+		s->ma += abs(m);
+		s->m2 += pow(m, 2);
+		s->m4 += pow(m, 4);
+		s->e  += e;
+		s->e2 += pow(e, 2);
 	}
 
-	mco->m  /= MCS;
-	mco->ma /= MCS;
-	mco->m2 /= MCS;
-	mco->m4 /= MCS;
-	mco->e  /= MCS;
-	mco->e2 /= MCS;
+	s->m  /= MCS;
+	s->ma /= MCS;
+	s->m2 /= MCS;
+	s->m4 /= MCS;
+	s->e  /= MCS;
+	s->e2 /= MCS;
 }
 
 void Test() {
@@ -190,7 +176,7 @@ int main(int argc, char *argv[]) {
 
 	int L = atoi(argv[1]), N = L*L, t;
 	double T;
-	MCObservable mco;
+	Solution s;
 
 	FILE *fe, *fc, *fm, *fx, *fu;
 	char fes[64], fcs[64], fms[64], fxs[64], fus[64];
@@ -210,7 +196,7 @@ int main(int argc, char *argv[]) {
 	for(t=1; t<T_MAX; t++) {
 		T = 0.1 * (T_MAX - t);
 
-		MonteCarlo(L, N, T, &mco);
+		MonteCarlo(L, N, T, &s);
 
 		fprintf(fe, "%f\t%f\n", T, ENERGY / N);
 		fprintf(fc, "%f\t%f\n", T, HEAT_CAPACITY(T) / N);
@@ -221,7 +207,7 @@ int main(int argc, char *argv[]) {
 	for(t=200; t<300; t++) {
 		T = 0.01 * (300 - t);
 
-		MonteCarlo(L, N, T, &mco);
+		MonteCarlo(L, N, T, &s);
 
 		fprintf(fu, "%f\t%f\n", T, CUMULANT / N);
 	}

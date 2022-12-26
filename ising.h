@@ -6,32 +6,30 @@
 #define USE_MATH_DEFINES
 #define OMP_THREAD (1)
 
-#define T_MAX (51) // max of temperature
-#define EQS (1000) // num of equilibrium step
+#define T_MAX (51) // max temperature
+#define EQS (1000) // equilibrium steps
+#define MCS (10000) // monte carlo steps
 
-#define ENERGY (mco.e)
-#define HEAT_CAPACITY(T) ((mco.e2 - pow(mco.e, 2)) / pow(T, 2))
-#define ABS_MAGNETIZATION (mco.ma)
-#define MAG_SUSCEPTIBILITY(T) ((mco.m2 - pow(mco.ma, 2)) / T)
-#define CUMULANT (1 - (mco.m4 / (3 * mco.m2)))
+#define ENERGY (s.e)
+#define HEAT_CAPACITY(T) ((s.e2 - pow(s.e, 2)) / pow(T, 2))
+#define ABS_MAGNETIZATION (s.ma)
+#define MAG_SUSCEPTIBILITY(T) ((s.m2 - pow(s.ma, 2)) / T)
+#define CUMULANT (1 - (s.m4 / (3 * s.m2)))
 
 #include <math.h>
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ran2.c"
 
-typedef struct MonteCarloObservable {
+typedef struct MonteCarloSolution {
 	double m;  // magnetization
 	double ma; // absolute magnetization
 	double m2; // magnetization^2
 	double m4; // magnetization^4
 	double e;  // energy
 	double e2; // energy^2
-} MCObservable;
-
-long seed = -3;
+} Solution;
 
 FILE* OpenFile(char *fs, char *ftype); // open file
 void GenIdx(int N, int *idx); // generate random index array
@@ -45,6 +43,6 @@ double CalcMagnetization(int L, int (*lat)[L]); // calculate magnetization
 double CalcEnergyOverall(int L, int (*lat)[L]); // calculate energy for overall lattice
 double CalcEnergySite(int i, int j, int L, int (*lat)[L]); // calculate energy for particular site
 
-void MonteCarlo(int L, int N, double T, MCObservable *mco); // Monte Carlo simulation
+void MonteCarlo(int L, int N, double T, Solution *s); // Monte Carlo simulation
 
 #endif

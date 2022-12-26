@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 class Draw:
 	def __init__(self, MCS):
-		self.MCS = MCS
+		self.MCS = int(MCS)
 
 		self.colors=['tab:blue', 'tab:orange', 'tab:green', 'tab:red']
 		self.markers = ['|', 'x', '*', 's']

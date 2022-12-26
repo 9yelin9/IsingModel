@@ -9,12 +9,10 @@ import matplotlib.pyplot as plt
 from pyising import draw
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-d', '--draw', type=int, default=None)
+parser.add_argument('-d', '--draw', type=int, default=None, help='<MCS> : DrawOutput')
 args = parser.parse_args()
 
 if args.draw:
-	MCS = 6
-
-	d = draw.Draw(MCS)
+	d = draw.Draw(args.draw)
 	d.DrawOutput()
 	sys.exit()
